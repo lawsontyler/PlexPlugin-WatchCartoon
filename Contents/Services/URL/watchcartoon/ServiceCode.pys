@@ -68,24 +68,8 @@ def MediaObjectsForURL(url):
 
         if iframe_url.find("embed.php"):
             Log("Found new-style iFrame URL: " + str(iframe_url))
-            iframe_data = HTTP.Request(iframe_url).content
-
-            video_url_json_start_index = iframe_data.find('file: "http')
-
-            if video_url_json_start_index > -1:
-                # Offset the 'file: "' bit.
-                video_url_json_start_index += 7
-                Log("Found at position: " + str(video_url_json_start_index))
-
-                # Find the end of the JSON string...
-                video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
-                Log("End position is: " + str(video_url_json_end_index))
-
-                video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
-
-                Log("Video URL is " + video_url)
-                iparts.append(PartObject(key=video_url))
-                count = count + 1
+            iparts.append(PartObject(key=Callback(getVideoUrlFromIframe, iframe_url = iframe_url)))
+            count = count + 1
 
         if iframe_url.endswith(".flv") or iframe_url.endswith(".mp4"):
             iframe_url = iframe_url.replace(" ","%20")
@@ -114,7 +98,7 @@ def MediaObjectsForURL(url):
 def doPlayVideo(url):
     Log("URL is: " + str(url))
     # They expect a POST with this value?
-    ep_data = HTML.ElementFromURL(url, {"oh_my": ""})
+    ep_data = HTML.ElementFromURL(url, {"fuck_you": ""})
     seach = ep_data.xpath("/html/body/embed/@flashvars")[0]
     
     Log("Found: " + str(seach))
@@ -128,3 +112,27 @@ def doPlayVideo(url):
     f = opener.open(request)
     
     return Redirect(f.url)
+
+def getVideoUrlFromIframe(iframe_url):
+    try:
+        iframe_data = HTTP.Request(iframe_url).content
+    except HTTPError:
+        return ""
+
+    video_url = ""
+    video_url_json_start_index = iframe_data.find('file: "http')
+
+    if video_url_json_start_index > -1:
+        # Offset the 'file: "' bit.
+        video_url_json_start_index += 7
+        Log("Found at position: " + str(video_url_json_start_index))
+
+        # Find the end of the JSON string...
+        video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
+        Log("End position is: " + str(video_url_json_end_index))
+
+        video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
+
+        Log("Video URL is " + video_url)
+
+    return video_url
