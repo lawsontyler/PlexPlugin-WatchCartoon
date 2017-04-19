@@ -8,6 +8,9 @@
 		<dict>
 			<key>URLPatterns</key>
 			<array>
+				<string>^https://www.watchcartoononline.io/.+</string>
+				<string>^https://www.watchcartoononline.com/.+</string>
+				<string>^http://www.watchcartoononline.io/.+</string>
 				<string>^http://www.watchcartoononline.com/.+</string>
 			</array>
 		</dict>

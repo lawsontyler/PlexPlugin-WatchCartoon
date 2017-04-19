@@ -4,103 +4,127 @@ import urllib2
 
 ######################################################################################
 
-BASE_URL = 'http://www.watchcartoononline.io/'
+BASE_URL = 'https://www.watchcartoononline.io/'
 
 ######################################################################################
 # Removes weird Characters from string
 def FixString(str):
-	str = str.encode('ascii', 'xmlcharrefreplace')
-	str = String.Unquote(str)
-	str = str.replace("&amp;","&")
-	str = str.replace("&#8211;","–")
-	str = str.replace("&#8217;","'")
-	return str
+    str = str.encode('ascii', 'xmlcharrefreplace')
+    str = String.Unquote(str)
+    str = str.replace("&amp;","&")
+    str = str.replace("&#8211;","–")
+    str = str.replace("&#8217;","'")
+    return str
 
 ######################################################################################
 # Pulls show name from show_url to add to show_title
 
 def MetadataObjectForURL(url):
-	page_data = HTML.ElementFromURL(url)
-	try:
-		show_title = page_data.xpath("//title/text()")[0]
-		show_title = show_title.replace("| Watch cartoons online, Watch anime online, English dub anime","")
-	except:
-		show_title = "???"
+    page_data = HTML.ElementFromURL(url)
+    try:
+        show_title = page_data.xpath("//title/text()")[0]
+        show_title = show_title.replace("| Watch cartoons online, Watch anime online, English dub anime","")
+    except:
+        show_title = "???"
 
-	try: 
-		show_desc = FixString(page_data.xpath("//meta[@name='description']/@content")[0])
-		show_sum = HTML.StringFromElement(page_data.xpath("//div[@class='iltext']/p")[0])
-		show_sum = String.StripTags(show_sum)
-		show_sum = show_sum.splitlines()[0]
-		show_sum = FixString(show_sum)
-		show_sum = show_sum.replace(show_desc,"")
-	except:
-		show_sum = "???"
+    try: 
+        show_desc = FixString(page_data.xpath("//meta[@name='description']/@content")[0])
+        show_sum = HTML.StringFromElement(page_data.xpath("//div[@class='iltext']/p")[0])
+        show_sum = String.StripTags(show_sum)
+        show_sum = show_sum.splitlines()[0]
+        show_sum = FixString(show_sum)
+        show_sum = show_sum.replace(show_desc,"")
+    except:
+        show_sum = "???"
 
-	try:
-		show_thumb = page_data.xpath("//link[@rel='image_src']/@href")[0]
-		return EpisodeObject(
-			title = show_title,
-			summary = show_sum,
-			thumb = show_thumb
-			)
-	except:
-		return EpisodeObject(
-			title = show_title,
-			summary = show_sum
-			)
-		
+    try:
+        show_thumb = page_data.xpath("//link[@rel='image_src']/@href")[0]
+        return EpisodeObject(
+            title = show_title,
+            summary = show_sum,
+            thumb = show_thumb
+            )
+    except:
+        return EpisodeObject(
+            title = show_title,
+            summary = show_sum
+            )
+        
 
 ################################################################################
 # All videos vary in codec and must be transcoded.
 def MediaObjectsForURL(url):
-	Log("MediaObjectsForURL: " + url)
-	page_data = HTML.ElementFromURL(url)
-	iframes = page_data.xpath("//iframe[contains(@id,'uploads')]/@src")
-	iparts = []
-	count = 0
-	iframesCount = len(iframes)
-	Log(str(iframesCount))
-	for each in iframes:
-		iframe_url = each
-		if iframe_url.endswith(".flv") or iframe_url.endswith(".mp4") : 
-			iframe_url = iframe_url.replace(" ","%20")
-			Log("iFrame URL is: " + str(iframe_url))
-			iparts.append(PartObject(key=Callback(doPlayVideo, url = iframe_url)))
-			count = count + 1
-			if count>=2:
-				break
-	if len(iparts)==0:
-		return [MediaObject(
-			audio_codec = AudioCodec.AAC,
-			video_codec = VideoCodec.H264,
-			parts = [PartObject(key=Callback(doPlayVideo, url = ""))]
-			)
-		]
-	return [MediaObject(
-		audio_codec = AudioCodec.AAC,
-		video_codec = VideoCodec.H264,
-		parts = iparts
-		)
-	]
+    Log("MediaObjectsForURL: " + url)
+    page_data = HTML.ElementFromURL(url)
+    iframes = page_data.xpath("//iframe[contains(@id,'uploads')]/@src")
+    iparts = []
+    count = 0
+    iframesCount = len(iframes)
+    Log(str(iframesCount))
+
+    for each in iframes:
+        iframe_url = each
+        Log(str(iframe_url))
+
+        if iframe_url.find("embed.php"):
+            Log("Found new-style iFrame URL: " + str(iframe_url))
+            iframe_data = HTTP.Request(iframe_url).content
+
+            video_url_json_start_index = iframe_data.find('file: "http')
+
+            if video_url_json_start_index > -1:
+                # Offset the 'file: "' bit.
+                video_url_json_start_index += 7
+                Log("Found at position: " + str(video_url_json_start_index))
+
+                # Find the end of the JSON string...
+                video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
+                Log("End position is: " + str(video_url_json_end_index))
+
+                video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
+
+                Log("Video URL is " + video_url)
+                iparts.append(PartObject(key=video_url))
+                count = count + 1
+
+        if iframe_url.endswith(".flv") or iframe_url.endswith(".mp4"):
+            iframe_url = iframe_url.replace(" ","%20")
+            Log("iFrame URL is: " + str(iframe_url))
+            iparts.append(PartObject(key=Callback(doPlayVideo, url = iframe_url)))
+            count = count + 1
+
+    if len(iparts) == 0:
+        return [MediaObject(
+            audio_codec = AudioCodec.AAC,
+            video_codec = VideoCodec.H264,
+            parts = [PartObject(key=Callback(doPlayVideo, url = ""))]
+            )
+        ]
+
+    return [MediaObject(
+        audio_codec = AudioCodec.AAC,
+        video_codec = VideoCodec.H264,
+        parts = iparts
+        )
+    ]
 
 ######################################################################################
 # Builds list of streams and plays using index from url
 
 def doPlayVideo(url):
-	Log("URL is: " + str(url))
-	# Immature, but they expect a POST with this value?
-	ep_data = HTML.ElementFromURL(url, {"fuck_you": ""})
-	seach = ep_data.xpath("/html/body/embed/@flashvars")[0]
-	
-	Log("Found: " + str(seach))
-	startn = seach.find("&file=")+6
-	endn = seach.find("&provider",startn)
-	epurl = String.Unquote(seach[startn:endn], usePlus=False).replace(" ", "%20")
-        Log("epurl: " + str(epurl))
-	
-	request = urllib2.Request(epurl)
-	opener = urllib2.build_opener()
-	f = opener.open(request)
-	
-	return Redirect(f.url)
+    Log("URL is: " + str(url))
+    # They expect a POST with this value?
+    ep_data = HTML.ElementFromURL(url, {"oh_my": ""})
+    seach = ep_data.xpath("/html/body/embed/@flashvars")[0]
+    
+    Log("Found: " + str(seach))
+    startn = seach.find("&file=")+6
+    endn = seach.find("&provider",startn)
+    epurl = String.Unquote(seach[startn:endn], usePlus=False).replace(" ", "%20")
+    Log("epurl: " + str(epurl))
+    
+    request = urllib2.Request(epurl)
+    opener = urllib2.build_opener()
+    f = opener.open(request)
+    
+    return Redirect(f.url)

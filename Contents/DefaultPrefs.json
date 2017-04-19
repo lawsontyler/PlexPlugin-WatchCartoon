@@ -1,28 +1,28 @@
 [
 
         {
-                "id":                   "ShowThumbCat",
-                "label":                "Show Thumbnails for Categories (off to speed up)",
+                "id":           "ShowThumbCat",
+                "label":        "Show Thumbnails for Categories (off to speed up)",
                 "type":         "bool",
-                "default":      "true",
+                "default":      "true"
         },
         {
-                "id":                   "ShowThumbEps",
-                "label":                "Show Thumbnails for Episodes (off to speed up)",
+                "id":           "ShowThumbEps",
+                "label":        "Show Thumbnails for Episodes (off to speed up)",
                 "type":         "bool",
-                "default":      "true",
+                "default":      "true"
         },
         {
-                "id":                   "ReverseOrder",
-                "label":                "Reverse the order of episode listing(useful for roku)",
+                "id":           "ReverseOrder",
+                "label":        "Reverse the order of episode listing(useful for roku)",
                 "type":         "bool",
-                "default":      "true",
+                "default":      "true"
         },
         {
-                "id":                   "pageLength",
-                "label":                "How many episodes per page",
+                "id":           "pageLength",
+                "label":        "How many episodes per page",
                 "type":         "enum",
                 "values":       ["10", "15", "20", "25", "30"],
-                "default":      "20",
-        },
+                "default":      "20"
+        }
 ]
