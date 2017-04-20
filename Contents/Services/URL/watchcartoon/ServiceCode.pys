@@ -55,84 +55,42 @@ def MetadataObjectForURL(url):
 # All videos vary in codec and must be transcoded.
 def MediaObjectsForURL(url):
     Log("MediaObjectsForURL: " + url)
-    page_data = HTML.ElementFromURL(url)
-    iframes = page_data.xpath("//iframe[contains(@id,'uploads')]/@src")
-    iparts = []
-    count = 0
-    iframesCount = len(iframes)
-    Log(str(iframesCount))
-
-    for each in iframes:
-        iframe_url = each
-        Log(str(iframe_url))
-
-        if iframe_url.find("embed.php"):
-            Log("Found new-style iFrame URL: " + str(iframe_url))
-            iparts.append(PartObject(key=Callback(getVideoUrlFromIframe, iframe_url = iframe_url)))
-            count = count + 1
-
-        if iframe_url.endswith(".flv") or iframe_url.endswith(".mp4"):
-            iframe_url = iframe_url.replace(" ","%20")
-            Log("iFrame URL is: " + str(iframe_url))
-            iparts.append(PartObject(key=Callback(doPlayVideo, url = iframe_url)))
-            count = count + 1
-
-    if len(iparts) == 0:
-        return [MediaObject(
-            audio_codec = AudioCodec.AAC,
-            video_codec = VideoCodec.H264,
-            parts = [PartObject(key=Callback(doPlayVideo, url = ""))]
-            )
-        ]
 
     return [MediaObject(
         audio_codec = AudioCodec.AAC,
         video_codec = VideoCodec.H264,
-        parts = iparts
-        )
-    ]
+        parts = [PartObject(key=Callback(playVideoUrlFromIframe, url = url))]
+    )]
 
 ######################################################################################
 # Builds list of streams and plays using index from url
 
-def doPlayVideo(url):
-    Log("URL is: " + str(url))
-    # They expect a POST with this value?
-    ep_data = HTML.ElementFromURL(url, {"fuck_you": ""})
-    seach = ep_data.xpath("/html/body/embed/@flashvars")[0]
-    
-    Log("Found: " + str(seach))
-    startn = seach.find("&file=")+6
-    endn = seach.find("&provider",startn)
-    epurl = String.Unquote(seach[startn:endn], usePlus=False).replace(" ", "%20")
-    Log("epurl: " + str(epurl))
-    
-    request = urllib2.Request(epurl)
-    opener = urllib2.build_opener()
-    f = opener.open(request)
-    
-    return Redirect(f.url)
+def playVideoUrlFromIframe(url):
+    Log("playVideoUrlFromIframe")
+    page_data = HTML.ElementFromURL(url)
+    iframes = page_data.xpath("//iframe[contains(@id,'uploads')]/@src")
 
-def getVideoUrlFromIframe(iframe_url):
-    try:
-        iframe_data = HTTP.Request(iframe_url).content
-    except HTTPError:
-        return ""
+    for iframe_url in iframes:
+        if iframe_url.find("embed.php") > 0:
+            Log("Found new-style iFrame URL: " + str(iframe_url))
 
-    video_url = ""
-    video_url_json_start_index = iframe_data.find('file: "http')
+            iframe_data = HTTP.Request(iframe_url).content
 
-    if video_url_json_start_index > -1:
-        # Offset the 'file: "' bit.
-        video_url_json_start_index += 7
-        Log("Found at position: " + str(video_url_json_start_index))
+            video_url = ""
+            video_url_json_start_index = iframe_data.find('file: "http')
 
-        # Find the end of the JSON string...
-        video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
-        Log("End position is: " + str(video_url_json_end_index))
+            if video_url_json_start_index > -1:
+                # Offset the 'file: "' bit.
+                video_url_json_start_index += 7
+                Log("Found at position: " + str(video_url_json_start_index))
 
-        video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
+                # Find the end of the JSON string...
+                video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
+                Log("End position is: " + str(video_url_json_end_index))
 
-        Log("Video URL is " + video_url)
+                video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
 
-    return video_url
+                Log("Video URL is " + video_url)
+                return Redirect(video_url)
+
+    return None
