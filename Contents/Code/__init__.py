@@ -388,6 +388,20 @@ def PageEpisodes(container, page_data, category, show_slug):
 
     return oc
 
+@route(PREFIX + "/episode-thumb/{episode_url}")
+def getEpisodeThumbnail(episode_url):
+    Log("getEpisodeThumbnail: %s" % episode_url)
+    page_data = HTML.ElementFromURL(episode_url)
+
+    try:
+        episode_thumb = page_data.xpath("//meta[@property='og:image']/@content")[0]
+    except:
+        episode_thumb = R(ICON_COVER)
+
+    return episode_thumb
+
+
+
 @route(PREFIX + "/list-episodes/{category}/{show_slug}/{estart}/{ecnt}")
 def ListEps(category, show_slug, estart, ecnt):
     """Loops over episode list within a given range"""
@@ -417,10 +431,11 @@ def ListEps(category, show_slug, estart, ecnt):
         except:
             continue
 
-        episode = GetEpisode(category = category, show_slug = show_slug, episode_slug = episode_slug, get_data = False)
-        episode.title = episode_title
-
-        oc.add(episode)
+        oc.add(EpisodeObject(
+            url = BASE_URL + "/" + episode_slug,
+            title = episode_title,
+            thumb = R(ICON)
+        ))
 
     if len(oc) <= 1:
         Log ("No Episodes")
@@ -428,7 +443,7 @@ def ListEps(category, show_slug, estart, ecnt):
 
     return oc
 
-
+@route(PREFIX + "/get-episode/{category}/{show_slug}/{episode_slug}")
 def GetEpisode(category, show_slug, episode_slug, get_data = True):
     """Collects metadata from ep_url and returns EpisodeObject"""
 
@@ -447,12 +462,14 @@ def GetEpisode(category, show_slug, episode_slug, get_data = True):
         episode_title = GetEpisodeTitleFromPage(ep_page_data)
 
         try:
-            episode_thumb = ep_page_data.xpath("//link[@rel='image_src']/@href")[0]
+            episode_thumb = ep_page_data.xpath("//meta[@property='og:image']/@content")[0]
         except:
             episode_thumb = R(ICON_COVER)
 
+        Log("Episode Thumb: %s" % episode_thumb)
+
         try:
-            ep_description = ep_page_data.xpath("//meta[@name='description']/@content")[0]
+            ep_description = ep_page_data.xpath("//meta[@itemprop='description']/@content")[0]
             ep_description = FixString(ep_description)
 
             episode_summary = HTML.StringFromElement(ep_page_data.xpath("//div[@class='iltext']/p")[0])
@@ -464,11 +481,11 @@ def GetEpisode(category, show_slug, episode_slug, get_data = True):
             episode_summary = "???"
 
     return EpisodeObject(
-        url = episode_url,
-        title = episode_title,
-        thumb = episode_thumb,
-        summary = episode_summary
-    )
+            url = episode_url,
+            title = episode_title,
+            thumb = episode_thumb,
+            summary = episode_summary
+        )
 
 def GetEpisodeTitleFromPage(page_data):
     title_element = page_data.xpath("//h1/a/text()")

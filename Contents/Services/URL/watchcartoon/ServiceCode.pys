@@ -7,6 +7,7 @@ import re
 ######################################################################################
 
 BASE_URL = 'https://www.watchcartoononline.io/'
+ICON_COVER = "icon-cover.png"
 
 ######################################################################################
 # Removes weird Characters from string
@@ -21,13 +22,28 @@ def FixString(str):
 ######################################################################################
 # Pulls show name from show_url to add to show_title
 
+def getEpisodeThumbnail(episode_url):
+    Log("getEpisodeThumbnail: %s" % episode_url)
+    page_data = HTML.ElementFromURL(episode_url)
+
+    try:
+        episode_thumb = page_data.xpath("//meta[@property='og:image']/@content")[0]
+    except:
+        episode_thumb = R(ICON_COVER)
+
+    return episode_thumb
+
 def MetadataObjectForURL(url):
+    Log("MetadataObjectForURL: %s" % url)
+
     page_data = HTML.ElementFromURL(url)
     try:
         show_title = page_data.xpath("//title/text()")[0]
         show_title = show_title.replace("| Watch cartoons online, Watch anime online, English dub anime","")
     except:
-        show_title = "???"
+        show_title = "N/A"
+
+    episode_thumb = getEpisodeThumbnail(url)
 
     try: 
         show_desc = FixString(page_data.xpath("//meta[@name='description']/@content")[0])
@@ -37,21 +53,13 @@ def MetadataObjectForURL(url):
         show_sum = FixString(show_sum)
         show_sum = show_sum.replace(show_desc, "")
     except:
-        show_sum = "???"
+        show_sum = ""
 
-    try:
-        show_thumb = page_data.xpath("//link[@rel='image_src']/@href")[0]
-        return EpisodeObject(
-            title = show_title,
-            summary = show_sum,
-            thumb = show_thumb
-        )
-    except:
-        return EpisodeObject(
-            title = show_title,
-            summary = show_sum
-        )
-        
+    return EpisodeObject(
+        title = show_title,
+        summary = show_sum,
+        thumb = episode_thumb
+    )
 
 def MediaObjectsForURL(url):
     """All videos vary in codec and must be transcoded."""
