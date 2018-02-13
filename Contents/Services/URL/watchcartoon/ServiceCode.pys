@@ -1,4 +1,6 @@
 import urllib2
+import base64
+import re
 
 # I know, bad things happen when using the library directly.  There are multiple redirects.  Let's get the last one.
 
@@ -63,34 +65,80 @@ def MediaObjectsForURL(url):
     )]
 
 
+def getVideoUrlFromiFrameURL(iframe_url):
+    Log("IFrame URL: %s" % iframe_url)
+
+    video_url = ""
+
+    if iframe_url.find("embed.php") > 0:
+        Log("Found new-style iFrame URL: " + str(iframe_url))
+
+        iframe_data = HTTP.Request(BASE_URL + iframe_url).content
+
+        video_url_json_start_index = iframe_data.find('file: "http')
+
+        if video_url_json_start_index > -1:
+            # Offset the 'file: "' bit.
+            video_url_json_start_index += 7
+            Log("Found at position: " + str(video_url_json_start_index))
+
+            # Find the end of the JSON string...
+            video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
+            Log("End position is: " + str(video_url_json_end_index))
+
+            video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
+
+            Log("Video URL is " + video_url)
+
+    return video_url
+
 def playVideoUrlFromIframe(url):
     """Builds list of streams and plays using index from url"""
 
     Log("playVideoUrlFromIframe")
     page_data = HTML.ElementFromURL(url)
-    iframes = page_data.xpath("//iframe[contains(@id,'uploads')]/@src")
+    video_url = ""
 
-    for iframe_url in iframes:
-        if iframe_url.find("embed.php") > 0:
-            Log("Found new-style iFrame URL: " + str(iframe_url))
+    Log("Got the page")
+    meta_url = page_data.xpath("//meta[@itemprop='embedURL']/@content")[0]
+    Log("Meta URL: %s" % meta_url)
 
-            iframe_data = HTTP.Request(iframe_url).content
+    if meta_url:
+        Log('They tried to get sneaky and use JS to load it in.  Ok, then.  Game on.')
+        script_data_full = page_data.xpath("//meta[@itemprop='embedURL']/following-sibling::script[1]/text()")[0]
 
-            video_url = ""
-            video_url_json_start_index = iframe_data.find('file: "http')
+        data_array_open = script_data_full.find('[') + 1
+        data_array_close = script_data_full.rfind(']')
+        # magic_number_index = script_data_full.rfind('-') + 1
 
-            if video_url_json_start_index > -1:
-                # Offset the 'file: "' bit.
-                video_url_json_start_index += 7
-                Log("Found at position: " + str(video_url_json_start_index))
+        magic_number = re.search(r"- (\d+)", script_data_full)
+        magic_number = int(magic_number.group(1))
 
-                # Find the end of the JSON string...
-                video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
-                Log("End position is: " + str(video_url_json_end_index))
+        script_data = script_data_full[data_array_open:data_array_close].replace('"', '').replace(' ', '').split(',')
+        script_data = map(base64.decodestring, script_data)
+        script_data = map(lambda s: re.sub(r"\D", "", s), script_data)
+        script_data = map(lambda i: chr(int(i) - magic_number), script_data)
+        script_data = "".join(script_data)
 
-                video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
+        iframe = HTML.ElementFromString(script_data)
+        iframe_url = iframe.attrib.get("src")[1:]
 
-                Log("Video URL is " + video_url)
-                return Redirect(video_url)
+        Log("Real iFrame URL: %s" % iframe_url)
+
+        video_url = getVideoUrlFromiFrameURL(iframe_url)
+
+    else:
+        Log("Old-style embed")
+        iframes = page_data.xpath("//iframe/@src")
+        Log(iframes)
+
+        for iframe_url in iframes:
+            video_url = getVideoUrlFromiFrameURL(iframe_url)
+
+            if video_url:
+                break
+
+    if video_url:
+        return Redirect(video_url)
 
     return None
