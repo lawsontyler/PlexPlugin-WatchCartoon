@@ -406,11 +406,11 @@ def ListEps(category, show_slug, estart, ecnt):
 
     oc = ObjectContainer(title1 = show_title)
 
-    elist = list(doReverse(eps_list))
+    episode_list = list(doReverse(eps_list))
     eend = estart + ecnt
-    elist = elist[estart:eend]
+    episode_list = episode_list[estart:eend]
 
-    for each in elist:
+    for each in episode_list:
         try:
             episode_slug = each.xpath("./@href")[0].replace(BASE_URL + '/', '')
             episode_title = FixString(each.xpath("./text()")[0])
@@ -436,38 +436,38 @@ def GetEpisode(category, show_slug, episode_slug, get_data = True):
 
     episode_url = BASE_URL + '/' + episode_slug
 
-    ep_title = ""
-    ep_thumb = R(ICON_COVER)
-    ep_summary = ""
+    episode_title = ""
+    episode_thumb = R(ICON_COVER)
+    episode_summary = ""
 
     if get_data:
         # Get Episodes Thumbnail and Summary
         ep_page_data = HTML.ElementFromURL(episode_url)
 
-        ep_title = GetEpisodeTitleFromPage(ep_page_data)
+        episode_title = GetEpisodeTitleFromPage(ep_page_data)
 
         try:
-            ep_thumb = ep_page_data.xpath("//link[@rel='image_src']/@href")[0]
+            episode_thumb = ep_page_data.xpath("//link[@rel='image_src']/@href")[0]
         except:
-            ep_thumb = R(ICON_COVER)
+            episode_thumb = R(ICON_COVER)
 
         try:
             ep_description = ep_page_data.xpath("//meta[@name='description']/@content")[0]
             ep_description = FixString(ep_description)
 
-            ep_summary = HTML.StringFromElement(ep_page_data.xpath("//div[@class='iltext']/p")[0])
-            ep_summary = String.StripTags(ep_summary)
-            ep_summary = ep_summary.splitlines()[0]
-            ep_summary = FixString(ep_summary)
-            ep_summary = ep_summary.replace(ep_description, "")
+            episode_summary = HTML.StringFromElement(ep_page_data.xpath("//div[@class='iltext']/p")[0])
+            episode_summary = String.StripTags(episode_summary)
+            episode_summary = episode_summary.splitlines()[0]
+            episode_summary = FixString(episode_summary)
+            episode_summary = episode_summary.replace(ep_description, "")
         except:
-            ep_summary = "???"
+            episode_summary = "???"
 
     return EpisodeObject(
         url = episode_url,
-        title = ep_title,
-        thumb = ep_thumb,
-        summary = ep_summary
+        title = episode_title,
+        thumb = episode_thumb,
+        summary = episode_summary
     )
 
 def GetEpisodeTitleFromPage(page_data):
