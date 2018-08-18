@@ -45,7 +45,7 @@ def MetadataObjectForURL(url):
 
     episode_thumb = getEpisodeThumbnail(url)
 
-    try: 
+    try:
         show_desc = FixString(page_data.xpath("//meta[@name='description']/@content")[0])
         show_sum = HTML.StringFromElement(page_data.xpath("//div[@class='iltext']/p")[0])
         show_sum = String.StripTags(show_sum)
@@ -83,20 +83,21 @@ def getVideoUrlFromiFrameURL(iframe_url):
 
         iframe_data = HTTP.Request(BASE_URL + iframe_url).content
 
-        video_url_json_start_index = iframe_data.find('file: "http')
+        original_start_index = iframe_data.find("src: 'http")
+        video_url_json_start_index = iframe_data.find("src: 'http", original_start_index + 1)
+        if video_url_json_start_index == -1:
+            video_url_json_start_index = original_start_index
 
         if video_url_json_start_index > -1:
             # Offset the 'file: "' bit.
-            video_url_json_start_index += 7
+            video_url_json_start_index += 6
             Log("Found at position: " + str(video_url_json_start_index))
 
             # Find the end of the JSON string...
-            video_url_json_end_index = iframe_data.find('"', video_url_json_start_index)
+            video_url_json_end_index = iframe_data.find("'", video_url_json_start_index)
             Log("End position is: " + str(video_url_json_end_index))
 
             video_url = iframe_data[video_url_json_start_index:video_url_json_end_index]
-
-            Log("Video URL is " + video_url)
 
     return video_url
 
@@ -127,6 +128,8 @@ def playVideoUrlFromIframe(url):
         script_data = map(lambda s: re.sub(r"\D", "", s), script_data)
         script_data = map(lambda i: chr(int(i) - magic_number), script_data)
         script_data = "".join(script_data)
+        parts = script_data.partition("</iframe>")
+        script_data = parts[0] + parts[1]
 
         iframe = HTML.ElementFromString(script_data)
         iframe_url = iframe.attrib.get("src")[1:]
@@ -145,6 +148,8 @@ def playVideoUrlFromIframe(url):
 
             if video_url:
                 break
+
+    Log("video_url: %s" % video_url)
 
     if video_url:
         return Redirect(video_url)
